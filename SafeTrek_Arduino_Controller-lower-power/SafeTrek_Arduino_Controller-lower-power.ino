@@ -36,16 +36,15 @@ void useInterrupt(boolean); // Func prototype keeps Arduino 0023 happy
 
 // Set the pins used
 #define chipSelect 10
-#define ledPin 13
+#define ledPin 13    // yellow LED for error codes
 #define OnSelect 5
 #define OffSelect 6
 #define set_Speed 7  //Knot speed that will turn on Pi system
 #define Pi_active 4
-#define ErrorLED 7   // LED to give feedback 
+// #define ErrorLED 7   // LED to give feedback 
 
 int val = 0;
 int i = 0;
-int rpistatus = 0;
 int sderror = 0;
 
 uint32_t timer = millis();
@@ -66,25 +65,15 @@ uint8_t parseHex(char c) {
 
 // blink out an error code
 void error(uint8_t errno) {
-/*
-    if (SD.errorCode()) {
-        putstring("SD error: ");
-        Serial.print(card.errorCode(), HEX);
-        Serial.print(',');
-        Serial.println(card.errorData(), HEX);
+    uint8_t i;
+    for (i=0; i<errno; i++) {
+        digitalWrite(ledPin, HIGH);
+        delay(100);
+        digitalWrite(ledPin, LOW);
+        delay(100);
     }
-*/
-    while(1) {
-        uint8_t i;
-        for (i=0; i<errno; i++) {
-            digitalWrite(ledPin, HIGH);
-            delay(100);
-            digitalWrite(ledPin, LOW);
-            delay(100);
-        }
-        for (i=errno; i<10; i++) {
-            delay(200);
-        }
+    for (i=errno; i<10; i++) {
+        delay(200);
     }
 }
 
@@ -121,34 +110,33 @@ void setup() {
     else {
         sderror=0;
     }
+    if (sderror==0){
+        // make file directory
+        if (!SD.exists("files"))
+            SD.mkdir("files");
 
-    // make file directory
-    if (!SD.exists("files"))
-        SD.mkdir("files");
-
-    // get new file name
-    char filename[21];
-    strcpy(filename, "files/GPSLG000.TXT");
-    for (uint16_t i = 0; i < 1000; i++) {
-        filename[11] = '0' + i/100;
-        filename[12] = '0' + (i%100)/10;
-        filename[13] = '0' + (i%100)%10;
-        // create if does not exist, do not open existing, write, sync after write
-        if (! SD.exists(filename))
-            break;
-    }
+        // get new file name
+        char filename[21];
+        strcpy(filename, "files/GPSLG000.TXT");
+        for (uint16_t i = 0; i < 1000; i++) {
+            filename[11] = '0' + i/100;
+            filename[12] = '0' + (i%100)/10;
+            filename[13] = '0' + (i%100)%10;
+            // create if does not exist, do not open existing, write, sync after write
+            if (! SD.exists(filename))
+                break;
+        }
     
-    logfile = SD.open(filename, FILE_WRITE);
-    if( ! logfile ) {
-        Serial.print("Couldnt create ");
+        logfile = SD.open(filename, FILE_WRITE);
+        if( ! logfile ) {
+            Serial.print("Couldnt create ");
+            Serial.println(filename);
+            error(3);
+            sderror=1;
+        }
+        Serial.print("Writing to ");
         Serial.println(filename);
-        error(3);
-        sderror=1;
     }
-    
-    Serial.print("Writing to ");
-    Serial.println(filename);
-
     // connect to the GPS at the desired rate
     GPS.begin(9600);
 
@@ -201,6 +189,9 @@ void useInterrupt(boolean v) {
 
 // MAIN LOOP
 void loop() {
+
+    val = digitalRead(Pi_active);
+    
     if (! usingInterrupt) {
         // read data from the GPS in the 'main loop'
         char c = GPS.read();
@@ -223,23 +214,18 @@ void loop() {
         if (!GPS.parse(stringptr))   // this also sets the newNMEAreceived() flag to false
             return;  // we can fail to parse a sentence in which case we should just wait for another
 
-        // Sentence parsed!
-        Serial.println("OK");
         if (LOG_FIXONLY && !GPS.fix) {
             Serial.print("No Fix");
             return;
         }
 
         // Rad. lets log it!
-        Serial.println("Log");
-
         uint8_t origstringsize = strlen(stringptr);
         uint8_t stringsize = origstringsize + 2;
         char newstring[stringsize] = {0};
         strcpy(newstring,stringptr);
         newstring[origstringsize-1] = ',';
-        Serial.print(newstring[origstringsize-2]);
-        if(rpistatus==1) {
+        if(val==1) {
             newstring[origstringsize] = '1';
         }
         else {
@@ -247,21 +233,17 @@ void loop() {
         }
         newstring[origstringsize+1] = ';';
         newstring[origstringsize+2] = '\0';
-        
-        //write the string to the SD file
-        if (stringsize != logfile.write(newstring)){
-            sderror=1;
-            error(4);
-        }
-        else {
-            sderror=0;
-            Serial.print(newstring);
-            Serial.print("\n----------------\n");
-        }
-        
-        if (strstr(stringptr, "RMC") || strstr(stringptr, "GGA"))   logfile.flush();
-        Serial.println();
 
+        if(sderror==0) {
+            //write the string to the SD file
+            if (stringsize != logfile.write(newstring)){
+                error(4);
+            }
+            if (strstr(stringptr, "RMC") || strstr(stringptr, "GGA"))   logfile.flush();
+            Serial.println();
+        }
+
+        Serial.print(newstring);
         // if millis() or timer wraps around, we'll just reset it
         if (timer > millis())  timer = millis();
 
@@ -271,56 +253,45 @@ void loop() {
             
             if (GPS.fix) {
                 if(GPS.speed > set_Speed){
-                     if(rpistatus==0){
+                     if(val==0){
                          // turn PI on
                          digitalWrite(OnSelect, HIGH);  // turn on Pi need to be high for 30 ms return low to conserve power
-                         delay(1000);
+                         delay(500);
                          digitalWrite(OnSelect, LOW);
-                         //give Pi one minute to start up and pull line high or kick out of loop once line is high
-                         for(i=0;i<120;i++){
-                             delay(1000);
+                         //digitalWrite(OnSelect, LOW);
+                         //give Pi 30 seconds to start up and pull line high or kick out of loop once line is high
+                         for(i=0;i<30;i++){
                              delay(1000);
                              val = digitalRead(Pi_active);  // read the input pin
                              if( val == 1){
-                                 i=121;  //Pi stated that it is running by pulling the line high
-                                 rpistatus=1;
+                                 i=31;  //Pi stated that it is running by pulling the line high
                              }
                          }
                      } //end while loop for Pi recording
                 }  //end if loop for speed above threshold
             }  //end loop for GPS fix
             
-            if(rpistatus==1){
-                val = digitalRead(Pi_active);   // read the input pin
-                if(val != 1){     //Pi indicated that is is done recording by setting line high
-                    for(i=0;i<60;i++){   //delay one mintue and check to see if it is stillhigh
-                        delay(500);
-                        delay(500);
-                        val = digitalRead(Pi_active);   // read the input pin
-                        if(val == 1) {
-                             i=62;        // if high then Pi is still running and a glitch caused a high
-                        }
-                    }
-                    // if no glitch detected, shut relay
-                    if(i != 62) {
-                        rpistatus=0;
-                        //if you get to this place in this loog the Pi must have stopped recording and 60 seconds has elapsed so we can turn power off to Pi
-                        digitalWrite(OffSelect, HIGH);
-                        delay(100);
-                        digitalWrite(OffSelect, LOW);   //return low to save power
-                        delay(500);  // allow some time for the system parasitic power to drain off just in case
-                        delay(500);
-                        delay(500);
-                        delay(500);
-                        delay(500);
+            if(val!=1){ //Pi indicated that is is done recording by setting line low
+                for(i=0;i<5;i++){   //delay 5 seconds and check to see if it is still high
+                    delay(500);
+                    delay(500);
+                    val = digitalRead(Pi_active);   // read the input pin
+                    if(val == 1) {
+                        i=6;        // if high then Pi is still running and a glitch caused a high
                     }
                 }
-            }
+                // if no glitch detected, shut relay
+                if(i != 6) {
+                    //if you get to this place in this loog the Pi must have stopped recording and 60 seconds has elapsed so we can turn power off to Pi
+                    digitalWrite(OffSelect, HIGH);
+                    delay(250);
+                    digitalWrite(OffSelect, LOW);
+                    delay(500);  // allow some time for the system parasitic power to drain off just in case
+                }
+            }    
         }  //end if millisec timer is at 5 sec
 
         delay(500);  //slow the process down
-        delay(500);
-        delay(500);
         delay(500);
   }
 }
