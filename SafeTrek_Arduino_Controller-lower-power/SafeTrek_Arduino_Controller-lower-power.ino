@@ -273,8 +273,7 @@ void loop() {
             
             if(val!=1){ //Pi indicated that is is done recording by setting line low
                 for(i=0;i<5;i++){   //delay 5 seconds and check to see if it is still high
-                    delay(500);
-                    delay(500);
+                    delay(1000);
                     val = digitalRead(Pi_active);   // read the input pin
                     if(val == 1) {
                         i=6;        // if high then Pi is still running and a glitch caused a high
