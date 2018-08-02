@@ -136,6 +136,10 @@ void setup() {
         }
         Serial.print("Writing to ");
         Serial.println(filename);
+        // turn on LED for 5 seconds to communicate that SD card is found
+        digitalWrite(ledPin, HIGH);
+        delay(5000);
+        digitalWrite(ledPin, LOW);
     }
     // connect to the GPS at the desired rate
     GPS.begin(9600);
@@ -256,7 +260,7 @@ void loop() {
                      if(val==0){
                          // turn PI on
                          digitalWrite(OnSelect, HIGH);  // turn on Pi need to be high for 30 ms return low to conserve power
-                         delay(500);
+                         delay(10);
                          digitalWrite(OnSelect, LOW);
                          //digitalWrite(OnSelect, LOW);
                          //give Pi 30 seconds to start up and pull line high or kick out of loop once line is high
@@ -283,7 +287,7 @@ void loop() {
                 if(i != 6) {
                     //if you get to this place in this loog the Pi must have stopped recording and 60 seconds has elapsed so we can turn power off to Pi
                     digitalWrite(OffSelect, HIGH);
-                    delay(250);
+                    delay(10);
                     digitalWrite(OffSelect, LOW);
                     delay(500);  // allow some time for the system parasitic power to drain off just in case
                 }
