@@ -41,12 +41,12 @@ void useInterrupt(boolean); // Func prototype keeps Arduino 0023 happy
 #define OffSelect 6
 #define set_Speed 7  //Knot speed that will turn on Pi system
 #define Pi_active 4
-// #define ErrorLED 7   // LED to give feedback 
+#define SDled 7   // LED to give feedback 
 
 int val = 0;
 int i = 0;
-int sderror = 0;
-
+boolean sderror = true;
+boolean initial = true;
 uint32_t timer = millis();
 
 File logfile;
@@ -65,16 +65,16 @@ uint8_t parseHex(char c) {
 
 // blink out an error code
 void error(uint8_t errno) {
-    uint8_t i;
-    for (i=0; i<errno; i++) {
-        digitalWrite(ledPin, HIGH);
-        delay(100);
-        digitalWrite(ledPin, LOW);
-        delay(100);
-    }
-    for (i=errno; i<10; i++) {
-        delay(200);
-    }
+    //uint8_t i;
+    //for (i=0; i<errno; i++) {
+        //digitalWrite(ledPin, HIGH);
+    //    delay(100);
+    //    digitalWrite(ledPin, LOW);
+    //    delay(100);
+    //}
+    //for (i=errno; i<10; i++) {
+    //    delay(200);
+    //}
 }
 
 void setup() {
@@ -87,9 +87,12 @@ void setup() {
     Serial.begin(115200);
     Serial.println("\r\nUltimate GPSlogger Shield");
     pinMode(ledPin, OUTPUT);
+    pinMode(SDled, OUTPUT);
     pinMode(OnSelect, OUTPUT);
     pinMode(OffSelect, OUTPUT);
     pinMode(Pi_active, INPUT);
+
+    digitalWrite(SDled, LOW);
 
     //make user that the system is initally off
     digitalWrite(OffSelect, HIGH);
@@ -104,13 +107,17 @@ void setup() {
     // if (!SD.begin(chipSelect, 11, 12, 13)) {
     if (!SD.begin(chipSelect)) {      // if you're using an UNO, you can use this line instead
         Serial.println("Card init. failed!");
-        sderror=1;
-        error(2);
+        sderror = true;
+        //error(2);
     }
     else {
-        sderror=0;
+        sderror = false;
     }
-    if (sderror==0){
+    
+    if (!sderror){
+        // turn light on
+        Serial.print("SD Card Found");
+        digitalWrite(SDled, HIGH);
         // make file directory
         if (!SD.exists("files"))
             SD.mkdir("files");
@@ -132,14 +139,11 @@ void setup() {
             Serial.print("Couldnt create ");
             Serial.println(filename);
             error(3);
-            sderror=1;
+            sderror=true;
+            digitalWrite(SDled, LOW);
         }
         Serial.print("Writing to ");
         Serial.println(filename);
-        // turn on LED for 5 seconds to communicate that SD card is found
-        digitalWrite(ledPin, HIGH);
-        delay(5000);
-        digitalWrite(ledPin, LOW);
     }
     // connect to the GPS at the desired rate
     GPS.begin(9600);
@@ -193,7 +197,20 @@ void useInterrupt(boolean v) {
 
 // MAIN LOOP
 void loop() {
-
+    // turn on LED for ~3 seconds to communicate that SD card is found
+    if((!sderror) && (initial)) {
+        Serial.print("No SD Card Error.");
+        unsigned long currentMillis = millis();
+        if((currentMillis) >= 10000){
+            Serial.print("Turning light off...");
+            digitalWrite(SDled, LOW);
+            initial = false;
+        }
+    }
+    else {
+        digitalWrite(SDled, LOW);
+    }
+    
     val = digitalRead(Pi_active);
     
     if (! usingInterrupt) {
@@ -238,7 +255,7 @@ void loop() {
         newstring[origstringsize+1] = ';';
         newstring[origstringsize+2] = '\0';
 
-        if(sderror==0) {
+        if(sderror==false) {
             //write the string to the SD file
             if (stringsize != logfile.write(newstring)){
                 error(4);
