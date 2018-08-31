@@ -4,6 +4,9 @@
 #include <SD.h>
 #include <avr/sleep.h>
 
+char unit[3]="01";
+char directory[13];
+
 
 // Ladyada's logger modified by Bill Greiman to use the SdFat library
 //
@@ -65,22 +68,35 @@ uint8_t parseHex(char c) {
 
 // blink out an error code
 void error(uint8_t errno) {
-    //uint8_t i;
-    //for (i=0; i<errno; i++) {
-        //digitalWrite(ledPin, HIGH);
-    //    delay(100);
-    //    digitalWrite(ledPin, LOW);
-    //    delay(100);
-    //}
-    //for (i=errno; i<10; i++) {
-    //    delay(200);
-    //}
+    uint8_t i;
+    for (i=0; i<errno; i++) {
+        digitalWrite(ledPin, HIGH);
+        delay(100);
+        digitalWrite(ledPin, LOW);
+        delay(100);
+    }
+    for (i=errno; i<10; i++) {
+        delay(200);
+    }
 }
 
 void setup() {
     // for Leonardos, if you want to debug SD issues, uncomment this line
     // to see serial output
     //while (!Serial);
+    directory[0] = 'u';
+    directory[1] = 'n';
+    directory[2] = 'i';
+    directory[3] = 't';
+    directory[4] = unit[0];
+    directory[5] = unit[1];
+    directory[6] = '-';
+    directory[7] = 'f';
+    directory[8] = 'i';
+    directory[9] = 'l';
+    directory[10] = 'e';
+    directory[11] = 's';
+    directory[12] = '\0';
 
     // connect at 115200 so we can read the GPS fast enough and echo without dropping chars
     // also spit it out
@@ -123,12 +139,25 @@ void setup() {
             SD.mkdir("files");
 
         // get new file name
-        char filename[21];
-        strcpy(filename, "files/GPSLG000.TXT");
+        char filename[26];
+        strcpy(filename, directory);
+        filename[13] = '/';
+        filename[14] = 'u';
+        filename[15] = unit[0];
+        filename[16] = unit[1];
+        filename[17] = '-';
+        filename[18] = '0';
+        filename[19] = '0';
+        filename[20] = '0';
+        filename[21] = '.';
+        filename[22] = 'T';
+        filename[23] = 'X';
+        filename[24] = 'T';
+        filename[25] = '\0';
         for (uint16_t i = 0; i < 1000; i++) {
-            filename[11] = '0' + i/100;
-            filename[12] = '0' + (i%100)/10;
-            filename[13] = '0' + (i%100)%10;
+            filename[18] = '0' + i/100;
+            filename[19] = '0' + (i%100)/10;
+            filename[20] = '0' + (i%100)%10;
             // create if does not exist, do not open existing, write, sync after write
             if (! SD.exists(filename))
                 break;
@@ -315,4 +344,3 @@ void loop() {
         delay(500);
   }
 }
-
