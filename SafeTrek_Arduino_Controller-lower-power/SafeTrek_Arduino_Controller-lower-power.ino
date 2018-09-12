@@ -4,7 +4,7 @@
 #include <SD.h>
 #include <avr/sleep.h>
 
-char unit[3]="01";
+char unit[3]="04";
 char directory[13];
 
 
@@ -13,7 +13,7 @@ char directory[13];
 // This code shows how to listen to the GPS module in an interrupt
 // which allows the program to have more 'freedom' - just parse
 // when a new NMEA sentence is available! Then access data when
-// desired.
+// desired.-3
 //
 // Tested and works great with the Adafruit Ultimate GPS Shield
 // using MTK33x9 chipset
@@ -135,8 +135,8 @@ void setup() {
         Serial.print("SD Card Found");
         digitalWrite(SDled, HIGH);
         // make file directory
-        if (!SD.exists("files"))
-            SD.mkdir("files");
+        if (!SD.exists(directory))
+            SD.mkdir(directory);
 
         // get new file name
         char filename[26];
