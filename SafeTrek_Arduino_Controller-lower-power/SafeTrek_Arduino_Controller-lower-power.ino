@@ -5,7 +5,7 @@
 #include <avr/sleep.h>
 
 char unit[3]="04";
-char directory[13];
+char directory[7];
 
 
 // Ladyada's logger modified by Bill Greiman to use the SdFat library
@@ -90,13 +90,28 @@ void setup() {
     directory[3] = 't';
     directory[4] = unit[0];
     directory[5] = unit[1];
-    directory[6] = '-';
-    directory[7] = 'f';
-    directory[8] = 'i';
-    directory[9] = 'l';
-    directory[10] = 'e';
-    directory[11] = 's';
-    directory[12] = '\0';
+    directory[6] = '\0';
+
+    char filename[19];
+    filename[0] = 'u';
+    filename[1] = 'n';
+    filename[2] = 'i';
+    filename[3] = 't';
+    filename[4] = unit[0];
+    filename[5] = unit[1];
+    filename[6] = '/';
+    filename[7] = 'u';
+    filename[8] = unit[0];
+    filename[9] = unit[1];
+    filename[10] = '_';
+    filename[11] = '0';
+    filename[12] = '0';
+    filename[13] = '0';
+    filename[14] = '.';
+    filename[15] = 'T';
+    filename[16] = 'X';
+    filename[17] = 'T';
+    filename[18] = '\0';
 
     // connect at 115200 so we can read the GPS fast enough and echo without dropping chars
     // also spit it out
@@ -123,6 +138,7 @@ void setup() {
     // if (!SD.begin(chipSelect, 11, 12, 13)) {
     if (!SD.begin(chipSelect)) {      // if you're using an UNO, you can use this line instead
         Serial.println("Card init. failed!");
+        Serial.println("\n\n----\n\n");
         sderror = true;
         //error(2);
     }
@@ -132,32 +148,27 @@ void setup() {
     
     if (!sderror){
         // turn light on
-        Serial.print("SD Card Found");
+        Serial.print("SD Card Found\n\n");
         digitalWrite(SDled, HIGH);
         // make file directory
-        if (!SD.exists(directory))
-            SD.mkdir(directory);
-
+        if (!SD.exists(directory)){
+          
+            if(SD.mkdir(directory)){
+              Serial.println("Created directory: ");
+              Serial.println(directory);
+            }
+            else {
+              Serial.println("Unable to create directory: ");
+              Serial.println(directory);
+              Serial.println("\n\n----\n\n");
+            }
+        }
         // get new file name
-        char filename[26];
-        strcpy(filename, directory);
-        filename[13] = '/';
-        filename[14] = 'u';
-        filename[15] = unit[0];
-        filename[16] = unit[1];
-        filename[17] = '-';
-        filename[18] = '0';
-        filename[19] = '0';
-        filename[20] = '0';
-        filename[21] = '.';
-        filename[22] = 'T';
-        filename[23] = 'X';
-        filename[24] = 'T';
-        filename[25] = '\0';
+
         for (uint16_t i = 0; i < 1000; i++) {
-            filename[18] = '0' + i/100;
-            filename[19] = '0' + (i%100)/10;
-            filename[20] = '0' + (i%100)%10;
+            filename[11] = '0' + i/100;
+            filename[12] = '0' + (i%100)/10;
+            filename[13] = '0' + (i%100)%10;
             // create if does not exist, do not open existing, write, sync after write
             if (! SD.exists(filename))
                 break;
@@ -165,14 +176,19 @@ void setup() {
     
         logfile = SD.open(filename, FILE_WRITE);
         if( ! logfile ) {
+            // print errror message if could not create file
             Serial.print("Couldnt create ");
             Serial.println(filename);
+            Serial.println("\n\n----\n\n");
             error(3);
             sderror=true;
             digitalWrite(SDled, LOW);
         }
-        Serial.print("Writing to ");
-        Serial.println(filename);
+        else{
+            Serial.print("Writing to ");
+            Serial.println(filename);
+            Serial.println("\n\n----\n\n");
+        }
     }
     // connect to the GPS at the desired rate
     GPS.begin(9600);
@@ -228,7 +244,7 @@ void useInterrupt(boolean v) {
 void loop() {
     // turn on LED for ~3 seconds to communicate that SD card is found
     if((!sderror) && (initial)) {
-        Serial.print("No SD Card Error.");
+        //Serial.print("No SD Card Error.");
         unsigned long currentMillis = millis();
         if((currentMillis) >= 10000){
             Serial.print("Turning light off...");
