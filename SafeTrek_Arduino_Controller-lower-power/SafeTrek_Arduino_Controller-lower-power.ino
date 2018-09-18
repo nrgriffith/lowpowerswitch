@@ -4,7 +4,7 @@
 #include <SD.h>
 #include <avr/sleep.h>
 
-char unit[3]="04";
+char unit[3]="22";
 char directory[7];
 
 
@@ -48,6 +48,7 @@ void useInterrupt(boolean); // Func prototype keeps Arduino 0023 happy
 
 int val = 0;
 int i = 0;
+int relayOpen = 0;
 boolean sderror = true;
 boolean initial = true;
 uint32_t timer = millis();
@@ -287,18 +288,25 @@ void loop() {
 
         // Rad. lets log it!
         uint8_t origstringsize = strlen(stringptr);
-        uint8_t stringsize = origstringsize + 2;
+        uint8_t stringsize = origstringsize + 4;
         char newstring[stringsize] = {0};
         strcpy(newstring,stringptr);
         newstring[origstringsize-1] = ',';
         if(val==1) {
-            newstring[origstringsize] = '1';
+            newstring[origstringsize] = 'a'; // a for active
         }
         else {
-            newstring[origstringsize] = '0';
+            newstring[origstringsize] = 'n'; // n for not active
         }
-        newstring[origstringsize+1] = ';';
-        newstring[origstringsize+2] = '\0';
+        newstring[origstringsize+1] = ',';
+        if(relayOpen==1){
+            newstring[origstringsize+2] = 'o'; // o for open
+        }
+        else {
+            newstring[origstringsize+2] = 's'; // s for shut
+        }
+        newstring[origstringsize+3] = ';';
+        newstring[origstringsize+4] = '\0';
 
         if(sderror==false) {
             //write the string to the SD file
@@ -322,6 +330,7 @@ void loop() {
                      if(val==0){
                          // turn PI on
                          digitalWrite(OnSelect, HIGH);  // turn on Pi need to be high for 30 ms return low to conserve power
+                         relayOpen = 1; // indicate that relay is open
                          delay(10);
                          digitalWrite(OnSelect, LOW);
                          //digitalWrite(OnSelect, LOW);
@@ -349,6 +358,7 @@ void loop() {
                 if(i != 6) {
                     //if you get to this place in this loog the Pi must have stopped recording and 60 seconds has elapsed so we can turn power off to Pi
                     digitalWrite(OffSelect, HIGH);
+                    relayOpen = 0; // indicate that relay is shut
                     delay(10);
                     digitalWrite(OffSelect, LOW);
                     delay(500);  // allow some time for the system parasitic power to drain off just in case
